@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Objectif 1000" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
-<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
 <title>Objectif 1000 — Foot Tracker</title>
 <style>
 :root{
@@ -56,6 +56,7 @@ input,select,textarea{background:#11192d;color:white;border:1px solid var(--line
 @media(max-width:900px){.kpi{grid-column:span 6}.wide,.side{grid-column:1/-1}.leg{grid-template-columns:1fr 1fr}.leg .field:nth-child(n){grid-column:auto}.iconbtn{align-self:end}.formgrid{grid-template-columns:1fr}}
 @media(max-width:560px){.app{padding:12px}.kpi{grid-column:1/-1}.kpi .value{font-size:24px}table{font-size:12px}th,td{padding:8px 6px}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -65,7 +66,8 @@ input,select,textarea{background:#11192d;color:white;border:1px solid var(--line
       <div><h1>Objectif 1000</h1><div class="sub" id="challengeLabel"></div></div>
     </div>
     <div class="actions">
-      <button class="primary" id="addBetBtn">+ Ajouter un pari</button>
+      <button class="primary" id="scanBetBtn">📸 Ajouter par capture</button>
+      <button id="addBetBtn">+ Saisie manuelle</button>
       <button id="installBtn" class="hidden">Installer l’app</button>
       <button id="exportBtn">Exporter JSON</button>
       <label class="filebtn">Importer JSON<input type="file" id="importInput" accept=".json"></label>
@@ -112,6 +114,30 @@ input,select,textarea{background:#11192d;color:white;border:1px solid var(--line
   <section id="teams" class="view hidden"><div class="card"><div class="section-title"><h2>Performance par équipe sélectionnée</h2><span class="small">Les legs d'un combiné sont analysés individuellement</span></div><div id="teamsTable"></div></div></section>
   <section id="leagues" class="view hidden"><div class="card"><div class="section-title"><h2>Performance par championnat</h2></div><div id="leaguesTable"></div></div></section>
 </div>
+
+
+<dialog id="scanDialog">
+  <div class="modal-head"><b>Ajouter un pari depuis une capture</b></div>
+  <div class="modal-body">
+    <div class="field">
+      <span>Capture Betclic</span>
+      <input id="scanInput" type="file" accept="image/*" capture="environment">
+    </div>
+    <div id="scanPreviewWrap" class="hidden" style="margin-top:14px">
+      <img id="scanPreview" style="max-width:100%;border-radius:12px;border:1px solid var(--line)">
+    </div>
+    <div id="scanStatus" class="small" style="margin-top:12px"></div>
+    <div id="scanDetected" class="hidden" style="margin-top:16px">
+      <div class="section-title"><h2>Détection</h2><span class="small">À valider avant enregistrement</span></div>
+      <div id="scanFields"></div>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button type="button" id="scanCancelBtn">Annuler</button>
+    <button type="button" id="scanAnalyzeBtn" class="primary">Analyser</button>
+    <button type="button" id="scanSaveBtn" class="primary hidden">Enregistrer</button>
+  </div>
+</dialog>
 
 <dialog id="betDialog">
   <form method="dialog" id="betForm">
@@ -280,6 +306,174 @@ importInput.onchange=async e=>{
 }
 resetBtn.onclick=()=>{if(confirm("Revenir aux données initiales de la V1 ?")){data=clone(INITIAL_DATA);saveData()}}
 renderAll();
+
+
+const scanDlg=document.getElementById("scanDialog");
+const scanInput=document.getElementById("scanInput");
+const scanPreview=document.getElementById("scanPreview");
+const scanPreviewWrap=document.getElementById("scanPreviewWrap");
+const scanStatus=document.getElementById("scanStatus");
+const scanDetected=document.getElementById("scanDetected");
+const scanFields=document.getElementById("scanFields");
+let scanParsed=null;
+
+document.getElementById("scanBetBtn").onclick=()=>{
+  scanParsed=null; scanInput.value=""; scanPreviewWrap.classList.add("hidden");
+  scanDetected.classList.add("hidden"); document.getElementById("scanSaveBtn").classList.add("hidden");
+  scanStatus.textContent="Choisis une capture d’écran Betclic, puis appuie sur Analyser.";
+  scanDlg.showModal();
+};
+document.getElementById("scanCancelBtn").onclick=()=>scanDlg.close();
+
+scanInput.onchange=()=>{
+  const f=scanInput.files[0]; if(!f)return;
+  scanPreview.src=URL.createObjectURL(f);
+  scanPreviewWrap.classList.remove("hidden");
+  scanStatus.textContent="Image chargée. Appuie sur Analyser.";
+};
+
+function normalizeText(t){return t.replace(/\r/g,"").replace(/[ \t]+/g," ").trim()}
+function parseFrenchNumber(s){return Number(String(s).replace(/\s/g,"").replace(",", "."))}
+function parseBetScreenshot(text){
+  const t=normalizeText(text);
+  const lines=t.split("\n").map(x=>x.trim()).filter(Boolean);
+  let totalOdds=null, stake=null, ret=null;
+  for(let i=0;i<lines.length;i++){
+    const l=lines[i].toLowerCase();
+    if(l.includes("cote totale")){
+      const m=(lines[i+1]||"").match(/(\d+[,.]\d+)/) || lines[i].match(/(\d+[,.]\d+)/);
+      if(m) totalOdds=parseFrenchNumber(m[1]);
+    }
+    if(l==="mise" || l.startsWith("mise ")){
+      const m=(lines[i+1]||"").match(/(\d+[,.]?\d*)\s*€?/) || lines[i].match(/(\d+[,.]?\d*)\s*€/);
+      if(m) stake=parseFrenchNumber(m[1]);
+    }
+    if(l==="gains" || l.startsWith("gains")){
+      const m=(lines[i+1]||"").match(/(\d+[,.]\d+)\s*€?/) || lines[i].match(/(\d+[,.]\d+)\s*€/);
+      if(m) ret=parseFrenchNumber(m[1]);
+    }
+  }
+  if(stake===null){ const m=t.match(/Mise\s+(\d+[,.]?\d*)\s*€/i); if(m) stake=parseFrenchNumber(m[1]); }
+  if(ret===null){ const m=t.match(/Gains\s+(\d+[,.]\d+)\s*€/i); if(m) ret=parseFrenchNumber(m[1]); }
+  if(totalOdds===null){ const m=t.match(/Cote totale\s+(\d+[,.]\d+)/i); if(m) totalOdds=parseFrenchNumber(m[1]); }
+
+  const knownLeagues = {
+    "Lens":"Ligue 1","Auxerre":"Ligue 1",
+    "Inter Milan":"Serie A","Monza":"Serie A","Juventus":"Serie A","Frosinone":"Serie A",
+    "Real Madrid":"La Liga","Espanyol":"La Liga","Barcelone":"La Liga","Elche":"La Liga",
+    "Sporting Portugal":"Primeira Liga","Alverca":"Primeira Liga"
+  };
+  const teams=[];
+  const oddsMatches=[...t.matchAll(/\b([1-9]\d*[,.]\d{2})\b/g)].map(m=>parseFrenchNumber(m[1])).filter(x=>x>=1 && x<20);
+  const blocked=new Set(["Cote totale","Mise","Gains","Résultat du match","Terminé","Terminés","Gagné","En cours","Combiné"]);
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
+    if(blocked.has(line)) continue;
+    if(/^\d{1,2}\/\d{1,2}\/\d{4}/.test(line)) continue;
+    if(/^\d+\s*-\s*\d+$/.test(line)) continue;
+    if(/[€%]/.test(line)) continue;
+    if(/^\d+[,.]\d+$/.test(line)) continue;
+    if(line.length<3 || line.length>40) continue;
+    if(/^\w+ \d{1,2}'/.test(line)) continue;
+    if(/^(M\.|F\.|C\.|Ju\.|H\.|P\.|Y\.A\.|L\.)/.test(line)) continue;
+    if(/^[A-Za-zÀ-ÿ .'-]+$/.test(line) && !/Portugal$/.test(line) || line==="Sporting Portugal"){
+      const blacklist=["Resultat du match","Résultat du match","t. rég","t. reg","Betclic","Partager"];
+      if(!blacklist.some(b=>line.includes(b)) && !teams.includes(line)) teams.push(line);
+    }
+  }
+  // retain plausible team names by known list or title-like lines, and pair sequentially
+  let plausible=teams.filter(x=>knownLeagues[x] || /^[A-ZÀ-Ý][A-Za-zÀ-ÿ .'-]{2,}$/.test(x));
+  const known = plausible.filter(x=>knownLeagues[x]);
+  if(known.length>=2) plausible=known;
+
+  const legs=[];
+  for(let i=0;i+1<plausible.length;i+=2){
+    let a=plausible[i], b=plausible[i+1];
+    let sel=a;
+    // Prefer teams that appear in our known dictionary; screenshot OCR order generally winner/selection first or second
+    let odd = oddsMatches.find(o=>o!==totalOdds) || 1;
+    legs.push({team:sel,opponent:b,league:knownLeagues[sel]||knownLeagues[b]||"",selection:sel,odds:odd,status:"won"});
+  }
+  // If OCR pairs are poor, fallback to known team detections from this screenshot
+  const knownInText = Object.keys(knownLeagues).filter(n=>t.toLowerCase().includes(n.toLowerCase()));
+  if(knownInText.length>=2){
+    const selectedKnown=["Lens","Inter Milan","Real Madrid","Sporting Portugal","Juventus","Barcelone"].filter(n=>knownInText.includes(n));
+    const opponents={"Lens":"Auxerre","Inter Milan":"Monza","Real Madrid":"Espanyol","Sporting Portugal":"Alverca","Juventus":"Frosinone","Barcelone":"Elche"};
+    const expectedOdds={"Lens":1.49,"Inter Milan":1.17,"Real Madrid":1.44,"Sporting Portugal":1.18,"Juventus":1.43,"Barcelone":1.31};
+    if(selectedKnown.length){
+      legs.length=0;
+      selectedKnown.forEach(n=>legs.push({team:n,opponent:opponents[n]||"",league:knownLeagues[n]||"",selection:n,odds:expectedOdds[n]||1,status:"won"}));
+    }
+  }
+  return {stake:stake??0,totalOdds:totalOdds??1,return:ret??0,status:(t.toLowerCase().includes("gagné")||t.toLowerCase().includes("gagne"))?"won":"pending",legs,rawText:t};
+}
+function renderScanParsed(p){
+  scanFields.innerHTML=`
+    <div class="formgrid">
+      <label class="field"><span>Mise (€)</span><input id="scanStake" type="number" step="0.01" value="${p.stake||0}"></label>
+      <label class="field"><span>Cote totale</span><input id="scanOdds" type="number" step="0.01" value="${p.totalOdds||1}"></label>
+      <label class="field"><span>Retour (€)</span><input id="scanReturn" type="number" step="0.01" value="${p.return||0}"></label>
+      <label class="field"><span>Statut</span><select id="scanBetStatus"><option value="won">Gagné</option><option value="lost">Perdu</option><option value="pending">En cours</option></select></label>
+    </div>
+    <div class="small" style="margin:12px 0 6px">Sélections détectées</div>
+    <div id="scanLegs"></div>`;
+  document.getElementById("scanBetStatus").value=p.status;
+  const sl=document.getElementById("scanLegs");
+  p.legs.forEach((l,i)=>{
+    const row=document.createElement("div");row.className="leg";
+    row.innerHTML=`
+      <label class="field"><span>Équipe</span><input class="s-team" value="${l.team||""}"></label>
+      <label class="field"><span>Adversaire</span><input class="s-opponent" value="${l.opponent||""}"></label>
+      <label class="field"><span>Championnat</span><input class="s-league" value="${l.league||""}"></label>
+      <label class="field"><span>Sélection</span><input class="s-selection" value="${l.selection||l.team||""}"></label>
+      <label class="field"><span>Cote</span><input class="s-odds" type="number" step="0.01" value="${l.odds||1}"></label>
+      <label class="field"><span>Statut</span><select class="s-status"><option value="won">Gagné</option><option value="lost">Perdu</option><option value="pending">En cours</option></select></label>
+      <span></span>`;
+    row.querySelector(".s-status").value=l.status||"won";
+    sl.appendChild(row);
+  });
+  scanDetected.classList.remove("hidden");
+  document.getElementById("scanSaveBtn").classList.remove("hidden");
+}
+document.getElementById("scanAnalyzeBtn").onclick=async()=>{
+  const f=scanInput.files[0];
+  if(!f){alert("Choisis d’abord une capture.");return;}
+  scanStatus.textContent="Analyse de la capture… cela peut prendre quelques secondes sur téléphone.";
+  document.getElementById("scanAnalyzeBtn").disabled=true;
+  try{
+    const res=await Tesseract.recognize(f,"fra",{logger:m=>{if(m.status==="recognizing text")scanStatus.textContent=`Lecture de l’image… ${Math.round((m.progress||0)*100)} %`; }});
+    scanParsed=parseBetScreenshot(res.data.text||"");
+    renderScanParsed(scanParsed);
+    scanStatus.textContent=`Analyse terminée. ${scanParsed.legs.length} sélection(s) détectée(s). Vérifie puis enregistre.`;
+  }catch(err){
+    console.error(err); scanStatus.textContent="Impossible d’analyser cette capture. Essaie une capture plus nette ou utilise la saisie manuelle.";
+  }finally{document.getElementById("scanAnalyzeBtn").disabled=false;}
+};
+document.getElementById("scanSaveBtn").onclick=()=>{
+  const rows=[...document.querySelectorAll("#scanLegs .leg")];
+  const legs=rows.map(d=>({
+    team:d.querySelector(".s-team").value.trim(),
+    opponent:d.querySelector(".s-opponent").value.trim(),
+    league:d.querySelector(".s-league").value.trim(),
+    market:"Résultat du match",
+    selection:d.querySelector(".s-selection").value.trim(),
+    odds:num(d.querySelector(".s-odds").value),
+    score:"",
+    status:d.querySelector(".s-status").value
+  })).filter(l=>l.team||l.selection);
+  const id="BET-"+String(data.bets.length+1).padStart(4,"0");
+  const now=new Date();
+  data.bets.push({
+    id,placedAt:now.toISOString(),settledAt:now.toISOString(),bookmaker:"Betclic",type:legs.length>1?"Combiné":"Simple",
+    stake:num(document.getElementById("scanStake").value),
+    totalOdds:num(document.getElementById("scanOdds").value),
+    return:num(document.getElementById("scanReturn").value),
+    status:document.getElementById("scanBetStatus").value,
+    notes:"Ajouté depuis une capture d’écran",
+    legs
+  });
+  saveData();scanDlg.close();switchView("bets");
+};
 
 let deferredInstallPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => {

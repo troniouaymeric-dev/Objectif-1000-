@@ -1,11 +1,11 @@
-const CACHE = "objectif-1000-v1-1";
+const CACHE = "objectif-1000-v1-2";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./data-initial.json",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./icon-192.png",
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", event => {

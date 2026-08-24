@@ -19,3 +19,13 @@ Cette version peut être installée comme une application sur Android/iPhone une
 ## Données
 Les paris restent enregistrés dans le stockage local du navigateur/appareil.
 Utiliser régulièrement "Exporter JSON" pour conserver une sauvegarde.
+
+
+## V1.2
+- Ajout d’un bouton « 📸 Ajouter par capture ».
+- OCR local dans le navigateur avec Tesseract.js.
+- Pré-remplissage de la mise, cote totale, retour, statut et sélections détectées.
+- Écran de validation avant enregistrement.
+- Correction des chemins d’icônes pour un dépôt GitHub Pages avec fichiers à la racine.
+
+> Limite : l’OCR local peut faire des erreurs selon la capture. La validation reste recommandée. Une version ultérieure avec analyse visuelle serveur peut être plus fiable.
