@@ -63,7 +63,7 @@ input,select,textarea{background:#11192d;color:white;border:1px solid var(--line
   <div class="topbar">
     <div class="brand">
       <div class="logo">⚽</div>
-      <div><h1>Objectif 1000</h1><div class="sub" id="challengeLabel"></div></div>
+      <div><h1>Objectif 1000 <span class="badge">V2</span></h1><div class="sub" id="challengeLabel"></div></div>
     </div>
     <div class="actions">
       <button class="primary" id="scanBetBtn">📸 Ajouter par capture</button>
@@ -125,12 +125,12 @@ input,select,textarea{background:#11192d;color:white;border:1px solid var(--line
         <label class="filebtn">🖼️ Choisir dans la galerie<input id="scanInput" type="file" accept="image/*" multiple></label>
         <label class="filebtn">📷 Prendre une photo<input id="cameraInput" type="file" accept="image/*" capture="environment"></label>
       </div>
-      <div class="small">Tu peux sélectionner plusieurs captures pour un même pari combiné.</div>
+      <div class="small">Format optimisé pour les captures Betclic. Tu peux sélectionner plusieurs captures pour un même combiné.</div>
     </div>
     <div id="scanPreviewWrap" class="hidden" style="margin-top:14px">
       <div id="scanPreviewGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px"></div>
     </div>
-    <div id="scanStatus" class="small" style="margin-top:12px"></div>
+    <div id="scanStatus" class="small" style="margin-top:12px"></div><div class="small" style="margin-top:6px">V2 analyse séparément équipe/cote, score et mise/gains.</div>
     <div id="scanDetected" class="hidden" style="margin-top:16px">
       <div class="section-title"><h2>Détection</h2><span class="small">À valider avant enregistrement</span></div>
       <div id="scanFields"></div>
@@ -351,84 +351,21 @@ scanInput.onchange=renderScanPreviews;
 cameraInput.onchange=renderScanPreviews;
 
 
-function normalizeText(t){return t.replace(/\r/g,"").replace(/[ \t]+/g," ").trim()}
-function parseFrenchNumber(s){return Number(String(s).replace(/\s/g,"").replace(",", "."))}
-function parseBetScreenshot(text){
-  const t=normalizeText(text);
-  const lines=t.split("\n").map(x=>x.trim()).filter(Boolean);
-  let totalOdds=null, stake=null, ret=null;
-  for(let i=0;i<lines.length;i++){
-    const l=lines[i].toLowerCase();
-    if(l.includes("cote totale")){
-      const m=(lines[i+1]||"").match(/(\d+[,.]\d+)/) || lines[i].match(/(\d+[,.]\d+)/);
-      if(m) totalOdds=parseFrenchNumber(m[1]);
-    }
-    if(l==="mise" || l.startsWith("mise ")){
-      const m=(lines[i+1]||"").match(/(\d+[,.]?\d*)\s*€?/) || lines[i].match(/(\d+[,.]?\d*)\s*€/);
-      if(m) stake=parseFrenchNumber(m[1]);
-    }
-    if(l==="gains" || l.startsWith("gains")){
-      const m=(lines[i+1]||"").match(/(\d+[,.]\d+)\s*€?/) || lines[i].match(/(\d+[,.]\d+)\s*€/);
-      if(m) ret=parseFrenchNumber(m[1]);
-    }
-  }
-  if(stake===null){ const m=t.match(/Mise\s+(\d+[,.]?\d*)\s*€/i); if(m) stake=parseFrenchNumber(m[1]); }
-  if(ret===null){ const m=t.match(/Gains\s+(\d+[,.]\d+)\s*€/i); if(m) ret=parseFrenchNumber(m[1]); }
-  if(totalOdds===null){ const m=t.match(/Cote totale\s+(\d+[,.]\d+)/i); if(m) totalOdds=parseFrenchNumber(m[1]); }
-
-  const knownLeagues = {
-    "Lens":"Ligue 1","Auxerre":"Ligue 1",
-    "Inter Milan":"Serie A","Monza":"Serie A","Juventus":"Serie A","Frosinone":"Serie A",
-    "Real Madrid":"La Liga","Espanyol":"La Liga","Barcelone":"La Liga","Elche":"La Liga",
-    "Sporting Portugal":"Primeira Liga","Alverca":"Primeira Liga"
-  };
-  const teams=[];
-  const oddsMatches=[...t.matchAll(/\b([1-9]\d*[,.]\d{2})\b/g)].map(m=>parseFrenchNumber(m[1])).filter(x=>x>=1 && x<20);
-  const blocked=new Set(["Cote totale","Mise","Gains","Résultat du match","Terminé","Terminés","Gagné","En cours","Combiné"]);
-  for(let i=0;i<lines.length;i++){
-    const line=lines[i];
-    if(blocked.has(line)) continue;
-    if(/^\d{1,2}\/\d{1,2}\/\d{4}/.test(line)) continue;
-    if(/^\d+\s*-\s*\d+$/.test(line)) continue;
-    if(/[€%]/.test(line)) continue;
-    if(/^\d+[,.]\d+$/.test(line)) continue;
-    if(line.length<3 || line.length>40) continue;
-    if(/^\w+ \d{1,2}'/.test(line)) continue;
-    if(/^(M\.|F\.|C\.|Ju\.|H\.|P\.|Y\.A\.|L\.)/.test(line)) continue;
-    if(/^[A-Za-zÀ-ÿ .'-]+$/.test(line) && !/Portugal$/.test(line) || line==="Sporting Portugal"){
-      const blacklist=["Resultat du match","Résultat du match","t. rég","t. reg","Betclic","Partager"];
-      if(!blacklist.some(b=>line.includes(b)) && !teams.includes(line)) teams.push(line);
-    }
-  }
-  // retain plausible team names by known list or title-like lines, and pair sequentially
-  let plausible=teams.filter(x=>knownLeagues[x] || /^[A-ZÀ-Ý][A-Za-zÀ-ÿ .'-]{2,}$/.test(x));
-  const known = plausible.filter(x=>knownLeagues[x]);
-  if(known.length>=2) plausible=known;
-
-  const legs=[];
-  for(let i=0;i+1<plausible.length;i+=2){
-    let a=plausible[i], b=plausible[i+1];
-    let sel=a;
-    // Prefer teams that appear in our known dictionary; screenshot OCR order generally winner/selection first or second
-    let odd = oddsMatches.find(o=>o!==totalOdds) || 1;
-    legs.push({team:sel,opponent:b,league:knownLeagues[sel]||knownLeagues[b]||"",selection:sel,odds:odd,status:"won"});
-  }
-  // If OCR pairs are poor, fallback to known team detections from this screenshot
-  const knownInText = Object.keys(knownLeagues).filter(n=>t.toLowerCase().includes(n.toLowerCase()));
-  if(knownInText.length>=2){
-    const selectedKnown=["Lens","Inter Milan","Real Madrid","Sporting Portugal","Juventus","Barcelone"].filter(n=>knownInText.includes(n));
-    const opponents={"Lens":"Auxerre","Inter Milan":"Monza","Real Madrid":"Espanyol","Sporting Portugal":"Alverca","Juventus":"Frosinone","Barcelone":"Elche"};
-    const expectedOdds={"Lens":1.49,"Inter Milan":1.17,"Real Madrid":1.44,"Sporting Portugal":1.18,"Juventus":1.43,"Barcelone":1.31};
-    if(selectedKnown.length){
-      legs.length=0;
-      selectedKnown.forEach(n=>legs.push({team:n,opponent:opponents[n]||"",league:knownLeagues[n]||"",selection:n,odds:expectedOdds[n]||1,status:"won"}));
-    }
-  }
-  return {stake:stake??0,totalOdds:totalOdds??1,return:ret??0,status:(t.toLowerCase().includes("gagné")||t.toLowerCase().includes("gagne"))?"won":"pending",legs,rawText:t};
-}
+function normalizeText(t){return String(t||"").replace(/\r/g,"").replace(/[ \t]+/g," ").trim()}
+function parseFrenchNumber(s){if(s==null)return null;const n=Number(String(s).replace(/\s/g,"").replace("€","").replace(",",".").replace(/[^\d.]/g,""));return Number.isFinite(n)?n:null}
+function cleanTeamName(s){return String(s||"").replace(/[^A-Za-zÀ-ÿ0-9 .'-]/g," ").replace(/\s+/g," ").trim()}
+function extractLabeledAmount(text,label){const r=new RegExp(label+"\\s*[:\\-]?\\s*(\\d+[,.]\\d{2})\\s*€","i"),m=text.match(r);if(m)return parseFrenchNumber(m[1]);const lines=normalizeText(text).split("\n").map(x=>x.trim()).filter(Boolean);for(let i=0;i<lines.length;i++)if(new RegExp("^"+label+"$","i").test(lines[i]))for(let j=i+1;j<=Math.min(i+3,lines.length-1);j++){const q=lines[j].match(/(\d+[,.]\d{2})\s*€?/);if(q)return parseFrenchNumber(q[1])}return null}
+function extractDate(text){const m=text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}:\d{2})/);if(!m)return null;let y=m[3];if(y.length===2)y="20"+y;return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}T${m[4]}:00`}
+function parseScoreLine(line){const m=line.match(/^(.+?)\s+(\d+)\s*[-–]\s*(\d+)\s+(.+)$/);return m?{home:cleanTeamName(m[1]),hs:+m[2],as:+m[3],away:cleanTeamName(m[4])}:null}
+function inferLegsFromText(text){const lines=normalizeText(text).split("\n").map(x=>x.trim()).filter(Boolean),legs=[];for(let i=0;i<lines.length;i++)if(/résultat du match/i.test(lines[i])){let team="";for(let j=i-1;j>=Math.max(0,i-4);j--){const c=cleanTeamName(lines[j]);if(c&&c.length>2&&!/^(simple|combin|gagn|perdu|betclic|aujourd)/i.test(c)&&!/^\d+[,.]\d+$/.test(c)){team=c;break}}let odds=null;for(let j=Math.max(0,i-4);j<=Math.min(lines.length-1,i+5);j++){const m=lines[j].match(/(?:^|\s)(\d{1,2}[,.]\d{2})(?:\s|$)/);if(m){const n=parseFrenchNumber(m[1]);if(n>=1.01&&n<=50){odds=n;break}}}if(team&&!legs.some(l=>l.team.toLowerCase()===team.toLowerCase()))legs.push({team,opponent:"",league:"",market:"Résultat du match",selection:team,odds:odds||1,status:"won",score:""})}const scores=lines.map(parseScoreLine).filter(Boolean);for(const l of legs){const s=scores.find(x=>x.home.toLowerCase()===l.team.toLowerCase()||x.away.toLowerCase()===l.team.toLowerCase());if(s){l.opponent=s.home.toLowerCase()===l.team.toLowerCase()?s.away:s.home;l.score=`${s.home} ${s.hs}-${s.as} ${s.away}`}}if(!legs.length&&scores.length){const s=scores[0],winner=s.hs>s.as?s.home:s.as>s.hs?s.away:"";if(winner){const odds=[...text.matchAll(/\b(\d{1,2}[,.]\d{2})\b/g)].map(m=>parseFrenchNumber(m[1])).filter(n=>n>=1.01&&n<=50);legs.push({team:winner,opponent:winner===s.home?s.away:s.home,league:"",market:"Résultat du match",selection:winner,odds:odds[0]||1,status:"won",score:`${s.home} ${s.hs}-${s.as} ${s.away}`})}}return legs}
+function parseBetScreenshot(text,regionText={}){const all=normalizeText([text,regionText.header,regionText.selection,regionText.score,regionText.money].filter(Boolean).join("\n"));const stake=extractLabeledAmount(all,"Mise"),ret=extractLabeledAmount(all,"Gains?");const legs=inferLegsFromText(all),type=/\bcombin[ée]\b/i.test(all)||legs.length>1?"Combiné":"Simple";let totalOdds=null;const cm=all.match(/Cote totale\s*[:\-]?\s*(\d+[,.]\d{2})/i);if(cm)totalOdds=parseFrenchNumber(cm[1]);if(!totalOdds&&type==="Simple"&&legs[0]?.odds>1)totalOdds=legs[0].odds;const status=/\bgagn[ée]\b/i.test(all)?"won":/\bperdu\b/i.test(all)?"lost":"pending";legs.forEach(l=>l.status=status==="pending"?"pending":status);return {type,stake:stake??0,totalOdds:totalOdds??1,return:ret??0,status,placedAt:extractDate(all),legs,rawText:all}}
+async function cropFileToBlob(file,x,y,w,h,scale=2){const bmp=await createImageBitmap(file),sx=Math.floor(bmp.width*x),sy=Math.floor(bmp.height*y),sw=Math.floor(bmp.width*w),sh=Math.floor(bmp.height*h),c=document.createElement("canvas");c.width=sw*scale;c.height=sh*scale;const ctx=c.getContext("2d");ctx.drawImage(bmp,sx,sy,sw,sh,0,0,c.width,c.height);const im=ctx.getImageData(0,0,c.width,c.height);for(let i=0;i<im.data.length;i+=4){const g=.299*im.data[i]+.587*im.data[i+1]+.114*im.data[i+2],v=g>205?255:g<70?0:Math.max(0,Math.min(255,(g-128)*1.7+128));im.data[i]=im.data[i+1]=im.data[i+2]=v}ctx.putImageData(im,0,0);return await new Promise(r=>c.toBlob(r,"image/png",1))}
+async function ocrBlob(blob,label,idx,count){const res=await Tesseract.recognize(blob,"fra",{logger:m=>{if(m.status==="recognizing text")scanStatus.textContent=`${label} — capture ${idx+1}/${count}… ${Math.round((m.progress||0)*100)} %`}});return res.data.text||""}
 function renderScanParsed(p){
   scanFields.innerHTML=`
     <div class="formgrid">
+      <label class="field"><span>Type</span><select id="scanType"><option>Simple</option><option>Combiné</option></select></label>
+      <label class="field"><span>Date du pari</span><input id="scanDate" type="datetime-local"></label>
       <label class="field"><span>Mise (€)</span><input id="scanStake" type="number" step="0.01" value="${p.stake||0}"></label>
       <label class="field"><span>Cote totale</span><input id="scanOdds" type="number" step="0.01" value="${p.totalOdds||1}"></label>
       <label class="field"><span>Retour (€)</span><input id="scanReturn" type="number" step="0.01" value="${p.return||0}"></label>
@@ -436,7 +373,9 @@ function renderScanParsed(p){
     </div>
     <div class="small" style="margin:12px 0 6px">Sélections détectées</div>
     <div id="scanLegs"></div>`;
+  document.getElementById("scanType").value=p.type||"Simple";
   document.getElementById("scanBetStatus").value=p.status;
+  if(p.placedAt)document.getElementById("scanDate").value=p.placedAt.slice(0,16);
   const sl=document.getElementById("scanLegs");
   p.legs.forEach((l,i)=>{
     const row=document.createElement("div");row.className="leg";
@@ -454,28 +393,7 @@ function renderScanParsed(p){
   scanDetected.classList.remove("hidden");
   document.getElementById("scanSaveBtn").classList.remove("hidden");
 }
-document.getElementById("scanAnalyzeBtn").onclick=async()=>{
-  const files=getSelectedScanFiles();
-  if(!files.length){alert("Choisis d’abord une ou plusieurs captures.");return;}
-  scanStatus.textContent=`Analyse de ${files.length} capture(s)…`;
-  document.getElementById("scanAnalyzeBtn").disabled=true;
-  try{
-    let allText=[];
-    for(let i=0;i<files.length;i++){
-      const res=await Tesseract.recognize(files[i],"fra",{logger:m=>{
-        if(m.status==="recognizing text"){
-          scanStatus.textContent=`Lecture capture ${i+1}/${files.length}… ${Math.round((m.progress||0)*100)} %`;
-        }
-      }});
-      allText.push(res.data.text||"");
-    }
-    scanParsed=parseBetScreenshot(allText.join("\n"));
-    renderScanParsed(scanParsed);
-    scanStatus.textContent=`Analyse terminée sur ${files.length} capture(s). ${scanParsed.legs.length} sélection(s) détectée(s). Vérifie puis enregistre.`;
-  }catch(err){
-    console.error(err); scanStatus.textContent="Impossible d’analyser les captures. Essaie des captures plus nettes ou utilise la saisie manuelle.";
-  }finally{document.getElementById("scanAnalyzeBtn").disabled=false;}
-};
+document.getElementById("scanAnalyzeBtn").onclick=async()=>{const files=getSelectedScanFiles();if(!files.length){alert("Choisis d’abord une ou plusieurs captures.");return}document.getElementById("scanAnalyzeBtn").disabled=true;try{let full=[],regions={header:[],selection:[],score:[],money:[]};for(let i=0;i<files.length;i++){full.push(await ocrBlob(files[i],"Lecture générale",i,files.length));const crops={header:await cropFileToBlob(files[i],.02,.16,.96,.12,2),selection:await cropFileToBlob(files[i],.03,.22,.94,.18,2.2),score:await cropFileToBlob(files[i],.04,.30,.92,.18,2.2),money:await cropFileToBlob(files[i],.03,.39,.94,.18,2.5)};regions.header.push(await ocrBlob(crops.header,"Type / statut",i,files.length));regions.selection.push(await ocrBlob(crops.selection,"Équipe / cote",i,files.length));regions.score.push(await ocrBlob(crops.score,"Match / score",i,files.length));regions.money.push(await ocrBlob(crops.money,"Mise / gains",i,files.length))}scanParsed=parseBetScreenshot(full.join("\n"),{header:regions.header.join("\n"),selection:regions.selection.join("\n"),score:regions.score.join("\n"),money:regions.money.join("\n")});renderScanParsed(scanParsed);scanStatus.textContent=`Analyse terminée : ${scanParsed.legs.length} sélection(s). Vérifie puis enregistre.`}catch(err){console.error(err);scanStatus.textContent="L’analyse a échoué. Essaie la capture Betclic complète, sans recadrage."}finally{document.getElementById("scanAnalyzeBtn").disabled=false}};
 document.getElementById("scanSaveBtn").onclick=()=>{
   const rows=[...document.querySelectorAll("#scanLegs .leg")];
   const legs=rows.map(d=>({
@@ -485,13 +403,15 @@ document.getElementById("scanSaveBtn").onclick=()=>{
     market:"Résultat du match",
     selection:d.querySelector(".s-selection").value.trim(),
     odds:num(d.querySelector(".s-odds").value),
-    score:"",
+    score:(scanParsed?.legs?.find(x=>x.team===d.querySelector(".s-team").value.trim())||{}).score||"",
     status:d.querySelector(".s-status").value
   })).filter(l=>l.team||l.selection);
   const id="BET-"+String(data.bets.length+1).padStart(4,"0");
   const now=new Date();
+  const pickedDate=document.getElementById("scanDate")?.value;
+  const placed=pickedDate?new Date(pickedDate).toISOString():now.toISOString();
   data.bets.push({
-    id,placedAt:now.toISOString(),settledAt:now.toISOString(),bookmaker:"Betclic",type:legs.length>1?"Combiné":"Simple",
+    id,placedAt:placed,settledAt:now.toISOString(),bookmaker:"Betclic",type:document.getElementById("scanType")?.value||(legs.length>1?"Combiné":"Simple"),
     stake:num(document.getElementById("scanStake").value),
     totalOdds:num(document.getElementById("scanOdds").value),
     return:num(document.getElementById("scanReturn").value),

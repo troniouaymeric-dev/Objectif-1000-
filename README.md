@@ -35,3 +35,10 @@ Utiliser régulièrement "Exporter JSON" pour conserver une sauvegarde.
 - Bouton séparé pour utiliser l'appareil photo.
 - Plusieurs screenshots peuvent être analysés pour un même combiné.
 - Les textes OCR sont fusionnés avant la détection du pari.
+
+
+## V2
+- OCR général + zones Betclic ciblées.
+- Prétraitement contraste/agrandissement.
+- Détection renforcée mise, gains, cote, équipes, score, type et date.
+- Écran de validation conservé.
