@@ -1,0 +1,84 @@
+{
+  "settings": {
+    "challengeName": "5 € → 1 000 €",
+    "startingBankroll": 5,
+    "targetBankroll": 1000,
+    "currency": "EUR"
+  },
+  "bets": [
+    {
+      "id": "BET-0001",
+      "placedAt": "2026-08-22T17:00:00",
+      "settledAt": "2026-08-23T23:30:00",
+      "bookmaker": "Betclic",
+      "type": "Combiné",
+      "stake": 5.0,
+      "totalOdds": 5.55,
+      "return": 27.75,
+      "status": "won",
+      "notes": "Premier pari du challenge",
+      "legs": [
+        {
+          "team": "Lens",
+          "opponent": "Auxerre",
+          "league": "Ligue 1",
+          "market": "Résultat du match",
+          "selection": "Lens",
+          "odds": 1.49,
+          "score": "5-2",
+          "status": "won"
+        },
+        {
+          "team": "Inter Milan",
+          "opponent": "Monza",
+          "league": "Serie A",
+          "market": "Résultat du match",
+          "selection": "Inter Milan",
+          "odds": 1.17,
+          "score": "4-1",
+          "status": "won"
+        },
+        {
+          "team": "Real Madrid",
+          "opponent": "Espanyol",
+          "league": "La Liga",
+          "market": "Résultat du match",
+          "selection": "Real Madrid",
+          "odds": 1.44,
+          "score": "2-1",
+          "status": "won"
+        },
+        {
+          "team": "Sporting Portugal",
+          "opponent": "Alverca",
+          "league": "Primeira Liga",
+          "market": "Résultat du match",
+          "selection": "Sporting Portugal",
+          "odds": 1.18,
+          "score": "3-1",
+          "status": "won"
+        },
+        {
+          "team": "Juventus",
+          "opponent": "Frosinone",
+          "league": "Serie A",
+          "market": "Résultat du match",
+          "selection": "Juventus",
+          "odds": 1.43,
+          "score": "1-0",
+          "status": "won"
+        },
+        {
+          "team": "Barcelone",
+          "opponent": "Elche",
+          "league": "La Liga",
+          "market": "Résultat du match",
+          "selection": "Barcelone",
+          "odds": 1.31,
+          "score": "5-0",
+          "status": "won"
+        }
+      ]
+    }
+  ]
+}

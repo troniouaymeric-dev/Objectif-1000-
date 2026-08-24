@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#0b1020" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Objectif 1000" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<title>Objectif 1000 — Foot Tracker</title>
+<style>
+:root{
+  --bg:#0b1020; --panel:#141b31; --panel2:#10172a; --text:#eef2ff;
+  --muted:#9aa4bf; --line:#28314d; --green:#22c55e; --red:#ef4444;
+  --yellow:#f59e0b; --blue:#60a5fa;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#090e1b,#0d1425 45%,#0b1020);color:var(--text)}
+button,input,select,textarea{font:inherit}
+.app{max-width:1280px;margin:auto;padding:20px}
+.topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:20px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#1d4ed8,#22c55e);display:grid;place-items:center;font-weight:900}
+h1{font-size:22px;margin:0}.sub{font-size:13px;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button,.filebtn{border:1px solid var(--line);background:#172039;color:#fff;border-radius:10px;padding:9px 12px;cursor:pointer}
+button.primary{background:#2563eb;border-color:#2563eb}.danger{background:#3a1720}
+.filebtn input{display:none}
+.tabs{display:flex;gap:8px;margin:10px 0 18px;overflow:auto}
+.tab{white-space:nowrap}.tab.active{background:#eef2ff;color:#10152a}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.card{background:rgba(20,27,49,.92);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.15)}
+.kpi{grid-column:span 3}.wide{grid-column:span 8}.side{grid-column:span 4}.full{grid-column:1/-1}
+.kpi .label{font-size:12px;color:var(--muted)}.kpi .value{font-size:28px;font-weight:800;margin-top:6px}.kpi .hint{font-size:12px;color:var(--muted);margin-top:4px}
+.pos{color:#4ade80}.neg{color:#f87171}
+.progress{height:10px;background:#222b43;border-radius:999px;overflow:hidden;margin-top:12px}.progress>div{height:100%;background:linear-gradient(90deg,#2563eb,#22c55e)}
+canvas{width:100%;height:280px;background:#10172a;border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left}th{color:#aab4cf;font-size:12px}
+.badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:12px;background:#26304a}.won{background:#153f2a;color:#86efac}.lost{background:#4a1f28;color:#fca5a5}.pending{background:#4a3a18;color:#fcd34d}
+.section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.section-title h2{font-size:16px;margin:0}
+.small{font-size:12px;color:var(--muted)}
+.hidden{display:none!important}
+dialog{width:min(900px,95vw);border:1px solid var(--line);border-radius:16px;background:#0f172a;color:white;padding:0}
+dialog::backdrop{background:rgba(0,0,0,.65)}
+.modal-head,.modal-foot{padding:16px;border-bottom:1px solid var(--line)}.modal-foot{border-top:1px solid var(--line);border-bottom:0;display:flex;justify-content:flex-end;gap:8px}
+.modal-body{padding:16px;max-height:70vh;overflow:auto}
+.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field.fullf{grid-column:1/-1}
+input,select,textarea{background:#11192d;color:white;border:1px solid var(--line);border-radius:9px;padding:9px}
+.leg{display:grid;grid-template-columns:1.2fr 1.2fr 1fr 1fr .8fr .8fr 36px;gap:8px;align-items:end;padding:10px 0;border-bottom:1px dashed var(--line)}
+.leg .field{min-width:0}.iconbtn{padding:8px}
+.empty{color:var(--muted);padding:20px;text-align:center}
+@media(max-width:900px){.kpi{grid-column:span 6}.wide,.side{grid-column:1/-1}.leg{grid-template-columns:1fr 1fr}.leg .field:nth-child(n){grid-column:auto}.iconbtn{align-self:end}.formgrid{grid-template-columns:1fr}}
+@media(max-width:560px){.app{padding:12px}.kpi{grid-column:1/-1}.kpi .value{font-size:24px}table{font-size:12px}th,td{padding:8px 6px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">⚽</div>
+      <div><h1>Objectif 1000</h1><div class="sub" id="challengeLabel"></div></div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="addBetBtn">+ Ajouter un pari</button>
+      <button id="installBtn" class="hidden">Installer l’app</button>
+      <button id="exportBtn">Exporter JSON</button>
+      <label class="filebtn">Importer JSON<input type="file" id="importInput" accept=".json"></label>
+      <button class="danger" id="resetBtn">Réinitialiser</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="dashboard">Dashboard</button>
+    <button class="tab" data-view="bets">Paris</button>
+    <button class="tab" data-view="teams">Équipes</button>
+    <button class="tab" data-view="leagues">Championnats</button>
+  </div>
+
+  <section id="dashboard" class="view">
+    <div class="grid">
+      <div class="card kpi"><div class="label">Bankroll actuelle</div><div class="value" id="bankrollKpi"></div><div class="hint" id="bankrollHint"></div></div>
+      <div class="card kpi"><div class="label">Profit net</div><div class="value" id="profitKpi"></div><div class="hint" id="roiHint"></div></div>
+      <div class="card kpi"><div class="label">Paris gagnés</div><div class="value" id="winsKpi"></div><div class="hint" id="winrateHint"></div></div>
+      <div class="card kpi"><div class="label">Cote moyenne</div><div class="value" id="oddsKpi"></div><div class="hint" id="stakeHint"></div></div>
+
+      <div class="card full">
+        <div class="section-title"><h2>Objectif bankroll</h2><span class="small" id="progressText"></span></div>
+        <div class="progress"><div id="progressBar"></div></div>
+      </div>
+
+      <div class="card wide">
+        <div class="section-title"><h2>Évolution de la bankroll</h2><span class="small">après règlement des paris</span></div>
+        <canvas id="bankrollChart" width="900" height="280"></canvas>
+      </div>
+      <div class="card side">
+        <div class="section-title"><h2>Résumé</h2></div>
+        <table><tbody id="summaryBody"></tbody></table>
+      </div>
+
+      <div class="card full">
+        <div class="section-title"><h2>Derniers paris</h2><button onclick="switchView('bets')">Tout voir</button></div>
+        <div id="recentBets"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="bets" class="view hidden"><div class="card"><div class="section-title"><h2>Historique des paris</h2><span class="small" id="betCount"></span></div><div id="betsTable"></div></div></section>
+  <section id="teams" class="view hidden"><div class="card"><div class="section-title"><h2>Performance par équipe sélectionnée</h2><span class="small">Les legs d'un combiné sont analysés individuellement</span></div><div id="teamsTable"></div></div></section>
+  <section id="leagues" class="view hidden"><div class="card"><div class="section-title"><h2>Performance par championnat</h2></div><div id="leaguesTable"></div></div></section>
+</div>
+
+<dialog id="betDialog">
+  <form method="dialog" id="betForm">
+    <div class="modal-head"><b>Nouveau pari</b></div>
+    <div class="modal-body">
+      <div class="formgrid">
+        <label class="field"><span>Date</span><input id="placedAt" type="date" required></label>
+        <label class="field"><span>Bookmaker</span><input id="bookmaker" value="Betclic"></label>
+        <label class="field"><span>Type</span><select id="betType"><option>Combiné</option><option>Simple</option></select></label>
+        <label class="field"><span>Statut</span><select id="betStatus"><option value="won">Gagné</option><option value="lost">Perdu</option><option value="pending">En cours</option></select></label>
+        <label class="field"><span>Mise (€)</span><input id="stake" type="number" step="0.01" min="0" required></label>
+        <label class="field"><span>Cote totale</span><input id="totalOdds" type="number" step="0.01" min="1" required></label>
+        <label class="field"><span>Retour (€)</span><input id="betReturn" type="number" step="0.01" min="0" value="0"></label>
+        <label class="field"><span>Note</span><input id="notes" placeholder="Optionnel"></label>
+      </div>
+      <div class="section-title" style="margin-top:18px"><h2>Sélections</h2><button type="button" id="addLegBtn">+ Sélection</button></div>
+      <div id="legs"></div>
+    </div>
+    <div class="modal-foot"><button type="button" id="cancelBtn">Annuler</button><button class="primary" type="submit">Enregistrer</button></div>
+  </form>
+</dialog>
+
+<script>
+const INITIAL_DATA = {"settings": {"challengeName": "5 € → 1 000 €", "startingBankroll": 5, "targetBankroll": 1000, "currency": "EUR"}, "bets": [{"id": "BET-0001", "placedAt": "2026-08-22T17:00:00", "settledAt": "2026-08-23T23:30:00", "bookmaker": "Betclic", "type": "Combiné", "stake": 5.0, "totalOdds": 5.55, "return": 27.75, "status": "won", "notes": "Premier pari du challenge", "legs": [{"team": "Lens", "opponent": "Auxerre", "league": "Ligue 1", "market": "Résultat du match", "selection": "Lens", "odds": 1.49, "score": "5-2", "status": "won"}, {"team": "Inter Milan", "opponent": "Monza", "league": "Serie A", "market": "Résultat du match", "selection": "Inter Milan", "odds": 1.17, "score": "4-1", "status": "won"}, {"team": "Real Madrid", "opponent": "Espanyol", "league": "La Liga", "market": "Résultat du match", "selection": "Real Madrid", "odds": 1.44, "score": "2-1", "status": "won"}, {"team": "Sporting Portugal", "opponent": "Alverca", "league": "Primeira Liga", "market": "Résultat du match", "selection": "Sporting Portugal", "odds": 1.18, "score": "3-1", "status": "won"}, {"team": "Juventus", "opponent": "Frosinone", "league": "Serie A", "market": "Résultat du match", "selection": "Juventus", "odds": 1.43, "score": "1-0", "status": "won"}, {"team": "Barcelone", "opponent": "Elche", "league": "La Liga", "market": "Résultat du match", "selection": "Barcelone", "odds": 1.31, "score": "5-0", "status": "won"}]}]};
+const KEY = "foot_bankroll_tracker_v1";
+let data = loadData();
+
+function clone(x){return JSON.parse(JSON.stringify(x))}
+function loadData(){ try { return JSON.parse(localStorage.getItem(KEY)) || clone(INITIAL_DATA) } catch { return clone(INITIAL_DATA) } }
+function saveData(){ localStorage.setItem(KEY, JSON.stringify(data)); renderAll(); }
+const eur = n => new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(n||0);
+const pct = n => `${(n||0).toFixed(1).replace(".",",")} %`;
+const num = n => Number(n||0);
+
+function calc(){
+  const settled = data.bets.filter(b=>b.status!=="pending");
+  const totalStake = settled.reduce((s,b)=>s+num(b.stake),0);
+  const totalReturn = settled.reduce((s,b)=>s+num(b.return),0);
+  const profit = totalReturn-totalStake;
+  const bankroll = num(data.settings.startingBankroll)+profit;
+  const wins = settled.filter(b=>b.status==="won").length;
+  const avgOdds = settled.length ? settled.reduce((s,b)=>s+num(b.totalOdds),0)/settled.length : 0;
+  const roi = totalStake ? profit/totalStake*100 : 0;
+  const winrate = settled.length ? wins/settled.length*100 : 0;
+  return {settled,totalStake,totalReturn,profit,bankroll,wins,avgOdds,roi,winrate};
+}
+function badge(s){ const map={won:"Gagné",lost:"Perdu",pending:"En cours"}; return `<span class="badge ${s}">${map[s]||s}</span>`}
+function formatDate(s){if(!s)return "-"; return new Date(s).toLocaleDateString("fr-FR")}
+function switchView(id){
+  document.querySelectorAll(".view").forEach(v=>v.classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===id));
+}
+window.switchView=switchView;
+
+function renderDashboard(){
+  const c=calc(), st=data.settings;
+  challengeLabel.textContent=`Challenge ${st.challengeName}`;
+  bankrollKpi.textContent=eur(c.bankroll);
+  bankrollHint.textContent=`Départ : ${eur(st.startingBankroll)}`;
+  profitKpi.textContent=(c.profit>=0?"+":"")+eur(c.profit);
+  profitKpi.className="value "+(c.profit>=0?"pos":"neg");
+  roiHint.textContent=`ROI : ${pct(c.roi)}`;
+  winsKpi.textContent=`${c.wins} / ${c.settled.length}`;
+  winrateHint.textContent=`Taux de réussite : ${pct(c.winrate)}`;
+  oddsKpi.textContent=c.avgOdds.toFixed(2).replace(".",",");
+  stakeHint.textContent=`Total misé : ${eur(c.totalStake)}`;
+  const p=Math.max(0,Math.min(100,(c.bankroll/st.targetBankroll)*100));
+  progressBar.style.width=p+"%";
+  progressText.textContent=`${eur(c.bankroll)} / ${eur(st.targetBankroll)} — ${pct(p)}`;
+
+  summaryBody.innerHTML=[
+    ["Mises cumulées",eur(c.totalStake)],
+    ["Retours cumulés",eur(c.totalReturn)],
+    ["Profit net",(c.profit>=0?"+":"")+eur(c.profit)],
+    ["ROI",pct(c.roi)],
+    ["Paris réglés",c.settled.length],
+    ["Sélections totales",data.bets.reduce((s,b)=>s+(b.legs||[]).length,0)]
+  ].map(([a,b])=>`<tr><td>${a}</td><td><b>${b}</b></td></tr>`).join("");
+  recentBets.innerHTML=renderBetsTable(data.bets.slice().sort((a,b)=>String(b.settledAt||b.placedAt).localeCompare(String(a.settledAt||a.placedAt))).slice(0,5),false);
+  drawChart();
+}
+function renderBetsTable(bets,withActions=true){
+  if(!bets.length)return `<div class="empty">Aucun pari.</div>`;
+  return `<div style="overflow:auto"><table><thead><tr><th>#</th><th>Date</th><th>Type</th><th>Sélections</th><th>Mise</th><th>Cote</th><th>Retour</th><th>Profit</th><th>Statut</th>${withActions?"<th></th>":""}</tr></thead><tbody>`+
+  bets.map(b=>{
+    const p=num(b.return)-num(b.stake);
+    return `<tr><td>${b.id}</td><td>${formatDate(b.placedAt)}</td><td>${b.type}</td><td>${(b.legs||[]).map(l=>l.selection||l.team).join(" · ")}</td><td>${eur(b.stake)}</td><td>${num(b.totalOdds).toFixed(2).replace(".",",")}</td><td>${eur(b.return)}</td><td class="${p>=0?"pos":"neg"}">${p>=0?"+":""}${eur(p)}</td><td>${badge(b.status)}</td>${withActions?`<td><button class="iconbtn" onclick="deleteBet('${b.id}')">🗑</button></td>`:""}</tr>`
+  }).join("")+"</tbody></table></div>";
+}
+function renderBets(){betCount.textContent=`${data.bets.length} pari(s)`; betsTable.innerHTML=renderBetsTable(data.bets.slice().reverse(),true)}
+function aggregateLegs(key){
+  const map={};
+  data.bets.forEach(b=>(b.legs||[]).forEach(l=>{
+    const k=l[key]||"Non renseigné";
+    map[k] ||= {name:k,count:0,wins:0,losses:0,pending:0,odds:0};
+    let x=map[k]; x.count++; x.odds+=num(l.odds);
+    if(l.status==="won")x.wins++; else if(l.status==="lost")x.losses++; else x.pending++;
+  }));
+  return Object.values(map).map(x=>({...x,rate:(x.wins+x.losses)?x.wins/(x.wins+x.losses)*100:0,avgOdds:x.count?x.odds/x.count:0})).sort((a,b)=>b.count-a.count||b.rate-a.rate);
+}
+function renderAgg(target,key,label){
+  const rows=aggregateLegs(key);
+  document.getElementById(target).innerHTML = rows.length ? `<div style="overflow:auto"><table><thead><tr><th>${label}</th><th>Jouée</th><th>Gagnées</th><th>Perdues</th><th>Réussite</th><th>Cote moy.</th></tr></thead><tbody>`+
+  rows.map(x=>`<tr><td><b>${x.name}</b></td><td>${x.count}</td><td>${x.wins}</td><td>${x.losses}</td><td>${pct(x.rate)}</td><td>${x.avgOdds.toFixed(2).replace(".",",")}</td></tr>`).join("")+"</tbody></table></div>" : `<div class="empty">Pas encore de données.</div>`;
+}
+function drawChart(){
+  const canvas=document.getElementById("bankrollChart"),ctx=canvas.getContext("2d");
+  const W=canvas.width,H=canvas.height;ctx.clearRect(0,0,W,H);
+  const bets=data.bets.filter(b=>b.status!=="pending").slice().sort((a,b)=>String(a.settledAt||a.placedAt).localeCompare(String(b.settledAt||b.placedAt)));
+  let val=num(data.settings.startingBankroll); const pts=[{x:0,y:val,label:"Départ"}];
+  bets.forEach((b,i)=>{val+=num(b.return)-num(b.stake); pts.push({x:i+1,y:val,label:b.id})});
+  const ys=pts.map(p=>p.y); let min=Math.min(...ys,0), max=Math.max(...ys,10); if(max===min)max=min+1;
+  const pad=38, sx=i=>pad+i*(W-2*pad)/Math.max(1,pts.length-1), sy=y=>H-pad-(y-min)*(H-2*pad)/(max-min);
+  ctx.strokeStyle="#2a3554";ctx.lineWidth=1;
+  for(let i=0;i<5;i++){let y=pad+i*(H-2*pad)/4;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(W-pad,y);ctx.stroke()}
+  ctx.strokeStyle="#60a5fa";ctx.lineWidth=3;ctx.beginPath();pts.forEach((p,i)=>{let x=sx(i),y=sy(p.y);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+  ctx.fillStyle="#eef2ff";ctx.font="12px system-ui";pts.forEach((p,i)=>{let x=sx(i),y=sy(p.y);ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();ctx.fillText(eur(p.y),Math.min(W-90,x+6),Math.max(16,y-8))});
+}
+function renderAll(){renderDashboard();renderBets();renderAgg("teamsTable","team","Équipe");renderAgg("leaguesTable","league","Championnat")}
+function deleteBet(id){if(confirm("Supprimer ce pari ?")){data.bets=data.bets.filter(b=>b.id!==id);saveData()}}
+window.deleteBet=deleteBet;
+
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>switchView(t.dataset.view));
+const dlg=document.getElementById("betDialog"), legsEl=document.getElementById("legs");
+function addLeg(v={}){
+  const div=document.createElement("div");div.className="leg";
+  div.innerHTML=`
+    <label class="field"><span>Équipe</span><input class="team" value="${v.team||""}" required></label>
+    <label class="field"><span>Adversaire</span><input class="opponent" value="${v.opponent||""}"></label>
+    <label class="field"><span>Championnat</span><input class="league" value="${v.league||""}"></label>
+    <label class="field"><span>Sélection</span><input class="selection" value="${v.selection||v.team||""}" required></label>
+    <label class="field"><span>Cote</span><input class="odds" type="number" step="0.01" min="1" value="${v.odds||""}" required></label>
+    <label class="field"><span>Statut</span><select class="legstatus"><option value="won">Gagné</option><option value="lost">Perdu</option><option value="pending">En cours</option></select></label>
+    <button type="button" class="iconbtn">✕</button>`;
+  div.querySelector(".legstatus").value=v.status||"won";div.querySelector("button").onclick=()=>div.remove();legsEl.appendChild(div);
+}
+addBetBtn.onclick=()=>{betForm.reset();bookmaker.value="Betclic";betStatus.value="won";betReturn.value=0;legsEl.innerHTML="";addLeg();placedAt.value=new Date().toISOString().slice(0,10);dlg.showModal()}
+addLegBtn.onclick=()=>addLeg();
+cancelBtn.onclick=()=>dlg.close();
+betForm.onsubmit=e=>{
+  e.preventDefault();
+  const id="BET-"+String(data.bets.length+1).padStart(4,"0");
+  const legs=[...legsEl.querySelectorAll(".leg")].map(d=>({
+    team:d.querySelector(".team").value.trim(),
+    opponent:d.querySelector(".opponent").value.trim(),
+    league:d.querySelector(".league").value.trim(),
+    market:"Résultat du match",
+    selection:d.querySelector(".selection").value.trim(),
+    odds:num(d.querySelector(".odds").value),
+    score:"",
+    status:d.querySelector(".legstatus").value
+  }));
+  data.bets.push({id,placedAt:placedAt.value+"T12:00:00",settledAt:placedAt.value+"T23:00:00",bookmaker:bookmaker.value.trim(),type:betType.value,stake:num(stake.value),totalOdds:num(totalOdds.value),return:num(betReturn.value),status:betStatus.value,notes:notes.value.trim(),legs});
+  saveData();dlg.close();switchView("bets");
+}
+exportBtn.onclick=()=>{
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download="foot-bankroll-data.json";a.click();URL.revokeObjectURL(a.href);
+}
+importInput.onchange=async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  try{const x=JSON.parse(await f.text()); if(!x.settings||!Array.isArray(x.bets))throw 0;data=x;saveData();alert("Import réussi.");}
+  catch{alert("Fichier JSON invalide.");}
+  e.target.value="";
+}
+resetBtn.onclick=()=>{if(confirm("Revenir aux données initiales de la V1 ?")){data=clone(INITIAL_DATA);saveData()}}
+renderAll();
+
+let deferredInstallPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.classList.remove("hidden");
+});
+document.getElementById("installBtn").onclick = async () => {
+  if (!deferredInstallPrompt) {
+    alert("Dans Chrome : menu ⋮ → Ajouter à l’écran d’accueil / Installer l’application.");
+    return;
+  }
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById("installBtn").classList.add("hidden");
+};
+window.addEventListener("appinstalled", () => {
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.classList.add("hidden");
+});
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));
+}
+
+</script>
+</body></html>
