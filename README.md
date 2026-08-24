@@ -29,3 +29,9 @@ Utiliser régulièrement "Exporter JSON" pour conserver une sauvegarde.
 - Correction des chemins d’icônes pour un dépôt GitHub Pages avec fichiers à la racine.
 
 > Limite : l’OCR local peut faire des erreurs selon la capture. La validation reste recommandée. Une version ultérieure avec analyse visuelle serveur peut être plus fiable.
+
+## V1.3
+- Choix d'une ou plusieurs captures directement depuis la galerie.
+- Bouton séparé pour utiliser l'appareil photo.
+- Plusieurs screenshots peuvent être analysés pour un même combiné.
+- Les textes OCR sont fusionnés avant la détection du pari.
